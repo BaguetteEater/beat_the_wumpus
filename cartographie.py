@@ -112,14 +112,14 @@ def is_case_sure (gs:Gophersat, position:Tuple[int, int]) -> bool :
 
 	# On teste la contradiction sur la position du Wumpus
 	push_clause_from_wumpus(gs, True, "W", position)
-	if gs.solve() == False and res == False : # Si l'existence du Wumpus a cet endroit entraine contradiction (CAD qu'il ne peut pas avoir de Wumpus en i j), alors la case est sure
+	if gs.solve() == False : # Si l'existence du Wumpus a cet endroit entraine contradiction (CAD qu'il ne peut pas avoir de Wumpus en i j), alors la case est sure
 		wumpus = True
 
 	gs.pop_clause()
 
 	# On teste la contradiction sur la position d'un trou
 	push_clause_from_wumpus(gs, True ,"P", position)
-	if gs.solve() == False and res == False : # Si l'existence d'u trou a cet endroit entraine contradiction (CAD qu'il ne peut pas avoir de trou en i j), alors la case est sure
+	if gs.solve() == False : # Si l'existence d'u trou a cet endroit entraine contradiction (CAD qu'il ne peut pas avoir de trou en i j), alors la case est sure
 		trou = True
 	
 	gs.pop_clause()
