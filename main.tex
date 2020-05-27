@@ -1,0 +1,66 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+
+\title{Wumpus IA}
+\author{Ulysee Brehon, Luis Enrique González Hilario}
+\date{May 2020}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+\section{Introduction}
+La première phase du projet vise à cartographier l'environnement de jeu Wumpus en appliquant les éléments de la logique propositionnelle et les règles du jeu. Ceci afin de ne pas révéler exhaustivement la grille.
+Notre objectif? 1 seul, dépensez le moins d'or intelligemment (logiquement, bien sûr)
+
+\section{Environnement}
+
+Notre programme est entièrement dans le fichier: \textbf{cartographie.py}
+\newline \newline
+La variable \textbf{gophersat\_exec} contient le chemin gophersat pour linux. En cas d'exécution sur Windows, remplacez-le simplement par: \textbf{./lib/gophersat}
+\newline \newline
+Pour l'executer, simplement run \textbf{cartographie.py}
+
+\section{Caractéristiques du programme}
+
+\begin{itemize}
+    \item \textbf{Vocabulaire}
+Il y a 5 fonctions pour créer des listes de tous les symboles (la quantité dépend du taille de la grille): generate\_wumpus\_voca (W), generate\_stench\_voca (S), generate\_gold\_voca (G), generate\_brise\_voca (B) et generate\_trou\_voca (T)
+\newline  \newline
+    \item \textbf{Règles}
+Nous avons 7 règles pour créer notre "cerveau déductif" dans le jeu de Wumpus: 
+
+        \begin{itemize}
+            \item \textbf{insert\_only\_one\_wumpus\_regle:} W_{i=a,j=b} \Rightarrow \land (\neg W_{i\ne a,j\ne b}) \newline  \newline
+
+            \item \textbf{insert\_safety\_regle:} \neg W_{0,0} \land  \neg T_{0,0} \newline  \newline
+
+            \item \textbf{insert\_trou\_regle:} (\neg T_{i,j} \lor B_{i-1,j}) \land (\neg T_{i,j} \lor B_{i+1,j}) \land (\neg T_{i,j} \lor B_{i,j-1}) \land (\neg T_{i,j} \lor B_{i.j+1}) \newline  \newline
+
+            \item \textbf{insert\_brise\_regle:}  \neg B_{i,j} \lor T_{i-1,j} \lor T{i+1,j} \lor T_{i,j-1} \lor T_{i,j+1} \newline  \newline
+
+            \item \textbf{insert\_wumpus\_stench\_regle:} (\neg W_{i,j} \lor S_{i-1,j}) \land (\neg W_{i,j} \lor S_{i+1,j}) \land (\neg W_{i,j} \lor S_{i,j-1}) \land (\neg W_{i,j} \lor S_{i.j+1}) \newline  \newline
+
+            \item \textbf{insert\_stench\_regle:} \neg S_{i,j} \lor W_{i-1,j} \lor W_{i+1,j} \lor W{i,j-1} \lor W{i,j+1} \newline  \newline
+
+            \item \textbf{insert\_une\_menace\_par\_case\_regle:} (\neg W_{i,j} \lor \neg T_{i,j}) \land (\neg T_{i,j} \lor \neg W_{i,j}) 
+
+        \end{itemize}
+\end{itemize}
+
+\section{Fonctions pour aider à la prise de décision}
+\begin{itemize}
+
+    \item \textbf{is\_wumpus\_possible}: Tester la satisfiabilité si on ajoute un Wumpus dans la position donnée sous la forme (i,j)
+    \item \textbf{is\_trou\_possible}: Tester la satisfiabilité si on ajoute un trou dans la position donnée sous la forme (i,j)
+    \item \textbf{get\_implicit\_negative\_facts}: Si B_{i,j} est Vrai. Donc \land (\neg S, \neg W, ... dans (i,j))
+
+\end{itemize}
+
+\section{Résultats importantes}
+\begin{itemize}
+    \item{\textbf{Satisfiabilité:}} Variable Boolean
+    \item{\textbf{Modèle:}} Modèle retourné par le solveur SAT
+    \item{\textbf{Cout en Or:}} Nôtre chiffre: 366 
+\end{document}
