@@ -48,10 +48,20 @@ def generate_trou_voca (taille_grille: int) :
 
 	return res
 
+def insert_all_regles (gs:Gophersat, wumpus_voca:List, trou_voca:List, brise_voca:List, stench_voca:List) : 
+
+	insert_only_one_wumpus_regle(gs, wumpus_voca)
+	insert_safety_regle(gs)
+	insert_trou_regle(gs, trou_voca, brise_voca)
+	insert_brise_regle(gs, brise_voca, trou_voca)
+	insert_wumpus_stench_regle(gs, wumpus_voca, stench_voca)
+	insert_stench_regle(gs, wumpus_voca, stench_voca)
+	insert_une_menace_par_case_regle(gs, wumpus_voca, trou_voca)
+
 # Il y a forcement un Wumpus et il en existe un seul
 # WIJ <-> non(WAB) et non(WAC) et non(WAD) ... 
 # Tested and Working
-def insert_wumpus_regle (gs:Gophersat, wumpus_voca:Tuple) :
+def insert_only_one_wumpus_regle (gs:Gophersat, wumpus_voca:List) :
 
 	wumpus_voca2 = wumpus_voca.copy()
 	for case in wumpus_voca :
@@ -67,6 +77,139 @@ def insert_safety_regle (gs:Gophersat) :
 
 	gs.push_pretty_clause(["-W00"])
 	gs.push_pretty_clause(["-T00"])
+
+# Wij -> -Tij
+# Tij -> -Wij
+# On ne peut pas avoir de wumpus en (i, j) si il y a un trou en (i, j)
+def insert_une_menace_par_case_regle (gs:Gophersat, wumpus_voca:List, trou_voca:List) :
+
+	trou_voca_pile = trou_voca.copy()
+	wumpus_voca_pile = wumpus_voca.copy()
+
+	for i in range(len(wumpus_voca)) :
+
+		trou = trou_voca_pile.pop()
+		wumpus = wumpus_voca_pile.pop()
+		gs.push_pretty_clause([f"-{wumpus}", f"-{trou}"])
+		gs.push_pretty_clause([f"-{trou}", f"-{wumpus}"])
+		print(wumpus, trou)
+
+
+# Si il y a un trou en (i, j) Alors il y a une brise en (i-1, j), (i+1, j), (i, j-1) et (i, j+1)
+# Tij -> B(i-1)j ET B(i+1)j ET Bi(j-1) ET Bi(j+1)
+# Devenant -Tij v B(i-1)j ; -Tij v B(i+1)j ; -Tij v Bi(j-1) ; -Tij v Bi(j+1)
+# Tested and working
+def insert_trou_regle (gs:Gophersat, trou_voca:List, brise_voca:List) :
+
+	for trou in trou_voca :
+		
+		# Soit le symbole Tij
+		i = int(trou[1]) # On recupere l'index i
+		j = int(trou[2]) # On recupere l'index j
+
+		brises = []
+
+		if f"B{i+1}{j}" in brise_voca :
+			brises.append(f"B{i+1}{j}")
+
+		if f"B{i-1}{j}" in brise_voca :
+			brises.append(f"B{i-1}{j}")
+
+		if f"B{i}{j+1}" in brise_voca :
+			brises.append(f"B{i}{j+1}")
+
+		if f"B{i}{j-1}" in brise_voca :
+			brises.append(f"B{i}{j-1}")
+
+		for brise in brises :
+			gs.push_pretty_clause([f"-{trou}", brise])
+
+
+# On insere -Bij ou T(i-1)j ou T(i+1)j ou Ti(j-1) ou Ti(j+1)
+# Tested and working
+def insert_brise_regle (gs:Gophersat, brise_voca:List, trou_voca:List) :
+	
+	for brise in brise_voca :
+		
+		# Soit le symbole Bij
+		i = int(brise[1]) # On recupere l'index i
+		j = int(brise[2]) # On recupere l'index j
+
+		trous = []
+
+		if f"T{i+1}{j}" in trou_voca :
+			trous.append(f"T{i+1}{j}")
+
+		if f"T{i-1}{j}" in trou_voca :
+			trous.append(f"T{i-1}{j}")
+
+		if f"T{i}{j+1}" in trou_voca :
+			trous.append(f"T{i}{j+1}")
+
+		if f"T{i}{j-1}" in trou_voca :
+			trous.append(f"T{i}{j-1}")
+
+		clause = trous + [f"-{brise}"]
+		gs.push_pretty_clause(clause)
+
+
+# Si il y a un wumpus en (i, j) Alors il y a une stench en (i-1, j), (i+1, j), (i, j-1) et (i, j+1)
+# Wij -> S(i-1)j ET S(i+1)j ET Si(j-1) ET Si(j+1)
+# Devenant -Wij v S(i-1)j ; -Wij v S(i+1)j ; -Wij v Si(j-1) ; -Wij v Si(j+1)
+# Tested and Working
+def insert_wumpus_stench_regle (gs:Gophersat, wumpus_voca:List, stench_voca:List) :
+
+	for wumpus in wumpus_voca :
+		
+		# Soit le symbole Tij
+		i = int(wumpus[1]) # On recupere l'index i
+		j = int(wumpus[2]) # On recupere l'index j
+
+		stenches = []
+
+		if f"S{i+1}{j}" in stench_voca :
+			stenches.append(f"S{i+1}{j}")
+
+		if f"S{i-1}{j}" in stench_voca :
+			stenches.append(f"S{i-1}{j}")
+
+		if f"S{i}{j+1}" in stench_voca :
+			stenches.append(f"S{i}{j+1}")
+
+		if f"S{i}{j-1}" in stench_voca :
+			stenches.append(f"S{i}{j-1}")
+
+		for stench in stenches :
+			gs.push_pretty_clause([f"-{wumpus}", stench])
+
+
+# On insere a chaque fin de boucle -Sij ou W(i-1)j ou W(i+1)j ou Wi(j-1) ou Wi(j+1)
+# Tested and Working
+def insert_stench_regle (gs:Gophersat, wumpus_voca:List, stench_voca:List) :
+		
+	for stench in stench_voca :
+		
+		# Soit le symbole Wij
+		i = int(stench[1]) # On recupere l'index i
+		j = int(stench[2]) # On recupere l'index j
+
+		wumpuses = []
+
+		if f"W{i+1}{j}" in wumpus_voca :
+			wumpuses.append(f"W{i+1}{j}")
+
+		if f"W{i-1}{j}" in wumpus_voca :
+			wumpuses.append(f"W{i-1}{j}")
+
+		if f"W{i}{j+1}" in wumpus_voca :
+			wumpuses.append(f"W{i}{j+1}")
+
+		if f"W{i}{j-1}" in wumpus_voca :
+			wumpuses.append(f"W{i}{j-1}")
+
+		clause = wumpuses + [f"-{stench}"]
+		gs.push_pretty_clause(clause)
+
 
 # Prend un caractere de la chaine de description d'une case et la position du contenu
 # Retourne un Tuple avec les clauses a inserer dans le modèle
@@ -84,86 +227,74 @@ def wumpus_to_clause (single_case_content:str, position:Tuple[int, int]) :
 		"S":[f"S{position[0]}{position[1]}"],
 		"G":[f"G{position[0]}{position[1]}"],
 		"B":[f"B{position[0]}{position[1]}"],
-		"-W":[f"-W{position[0]}{position[1]}"],
-		"-P":[f"-T{position[0]}{position[1]}"],
-		"-S":[f"-S{position[0]}{position[1]}"],
-		"-G":[f"-G{position[0]}{position[1]}"],
-		"-B":[f"-B{position[0]}{position[1]}"]
 	}
 	return switcher.get(single_case_content, -1)
 
-def push_clause_from_wumpus (gs:Gophersat, is_positive:bool, case_contents:str, position:Tuple[int, int]):
+def push_clause_from_wumpus (gs:Gophersat, case_contents:str, position:Tuple[int, int]):
+
+	facts = []
 	for case_content in case_contents :
-		if is_positive == False :
-			clauses = wumpus_to_clause(f"-{case_content}", position)
-		else :
-			clauses = wumpus_to_clause(case_content, position)
 		
-		if clauses == -1 :
+		tmp_facts = wumpus_to_clause(case_content, position)
+		
+		if tmp_facts == -1 :
 			print("Error : Invalid case contents, have you inserted multiple case content at once ?")
+			return -1
 		else :
-			for clause in clauses : # On doit inserer les clauses une a une
-				gs.push_pretty_clause([clause])
+			facts = facts + tmp_facts	
 
-def is_case_sure (gs:Gophersat, position:Tuple[int, int]) -> bool :
+	facts = facts + get_implicit_negative_facts(facts, position)	
 
-	wumpus = False
-	trou = False
+	for fact in facts : # On doit inserer les clauses une a une
+		gs.push_pretty_clause([fact])
 
-	# On teste la contradiction sur la position du Wumpus
-	push_clause_from_wumpus(gs, True, "W", position)
-	if gs.solve() == False : # Si l'existence du Wumpus a cet endroit entraine contradiction (CAD qu'il ne peut pas avoir de Wumpus en i j), alors la case est sure
-		wumpus = True
+# On ajoute les faits perçu de par leur non-presence
+# Exemple : On repere Bij, cela veut dire qu'il n'a pas de wumpus, ni de trou, ni de stench etc....
+def get_implicit_negative_facts (facts:List, position:Tuple[int, int]) :
+	possible_case_content = ["W", "T", "G", "S", "B"]
+	need_to_add = True
+	facts_to_add = []
 
-	gs.pop_clause()
+	for content in possible_case_content :
+		for fact in facts :
 
-	# On teste la contradiction sur la position d'un trou
-	push_clause_from_wumpus(gs, True ,"P", position)
-	if gs.solve() == False : # Si l'existence d'u trou a cet endroit entraine contradiction (CAD qu'il ne peut pas avoir de trou en i j), alors la case est sure
-		trou = True
-	
-	gs.pop_clause()
+			if content in fact :
+				need_to_add = False
 
-	return wumpus and trou
+		if need_to_add :
+			facts_to_add.append(f"-{content}{position[0]}{position[1]}")
 
-def is_case_dangereuse (gs:Gophersat, position:Tuple[int, int]) -> bool :
+		need_to_add = True
 
-	res = False
+	return facts_to_add
 
-	# On teste la contradiction sur la position du Wumpus
-	push_clause_from_wumpus(gs, False, "W", position) 
-	if gs.solve() == False and res == False : # Si la non-existence du Wumpus a cet endroit entraine contradiction, alors la case est dangereuse
-		res = True
-	
-	gs.pop_clause()
-	
-	# On teste la contradiction sur la position d'un trou
-	push_clause_from_wumpus(gs, False ,"P", position)
-	
-	if gs.solve() == False and res == False : # Si la non-existence d'un trou a cet endroit entraine contradiction (CAD qu'il ne peut pas NE PAS AVOIR de trou en i j), alors la case est dangereuse
-		res = True
+
+# True si un wumpus en i, j est possible
+# False si un wumpus i, j est impossible
+def is_wumpus_possible(gs, position:Tuple[int, int]) -> bool :
+
+	gs.push_pretty_clause([f"W{position[0]}{position[1]}"])
+
+	res = gs.solve()
 
 	gs.pop_clause()
 
-	return res # sinon la case n'est pas dangeureuse
+	return res
+
+def is_trou_possible(gs, position:Tuple[int, int]) -> bool :
+
+	gs.push_pretty_clause([f"T{position[0]}{position[1]}"])
+
+	res = gs.solve()
+
+	gs.pop_clause()
+
+	return res
 
 def should_I_be_cautious (gs:Gophersat, position:Tuple[int, int]) -> bool :
 
-	res = True
-
-	if is_case_dangereuse(gs, position) and is_case_sure(gs, position) : # Si pour une raison ou une autre, on arrive a determiner que la case peut etre dangereuse comme elle pourrait etre sure
-		res = True # Alors on prend nos précautions
-
-	if is_case_dangereuse(gs, position) and not is_case_sure(gs, position) :
-		res = True
-
-	if is_case_sure(gs, position) and not is_case_dangereuse(gs, position) : 
-		res = False
-
-	print(f"should_I_be_cautious : {res}")
-	print(f"case sur ? {is_case_sure(gs, position)}")
-	print(f"case dangeureuse ? {is_case_dangereuse(gs, position)}")
-	return res
+	print(f"wumpus possible : {is_wumpus_possible(gs, position)} ----- trou possible : {is_trou_possible(gs, position)}")
+	return is_wumpus_possible(gs, position) or is_trou_possible(gs, position)
 
 
 if __name__ == "__main__":
@@ -181,8 +312,8 @@ if __name__ == "__main__":
 	gs = Gophersat(gophersat_exec, voc)
 
 	# On modelise les regles
-	insert_safety_regle(gs)
-	insert_wumpus_regle(gs, wumpus_voca)
+	insert_all_regles(gs, wumpus_voca, trou_voca, brise_voca, stench_voca)
+	print(f"Modelisation reussie : {gs.solve()}")
 
 	# On crée le monde
 	ww = WumpusWorld()
@@ -191,24 +322,33 @@ if __name__ == "__main__":
 	# On analyse notre position, qui est (0, 0) pour 0 gold
 	# Puis on ajoute le resultat au modèle
 	case_contents = ww.get_percepts()[2]
-	push_clause_from_wumpus(gs, True, case_contents, ww.get_position())
+	push_clause_from_wumpus(gs, case_contents, ww.get_position())
+	print(f"{gs.solve()}")
+	print(f"{gs.get_pretty_model()}")
 
-	for i in range(taille_grille) :
-		for j in range(taille_grille) :
+	print("==========================\n\n")
+
+	for i in range(4) :
+		for j in range(4) :
 			if i != 0 or j != 0 : # On ne regarde pas la premiere case pour economiser l'argent
 				
 				if should_I_be_cautious(gs, [i, j]) :
 					case_contents = ww.cautious_probe(i, j)[1]
 				else :
-					case_contents = ww.cautious_probe(i, j)[1]
+					case_contents = ww.probe(i, j)[1]
 
-				push_clause_from_wumpus(gs, True, case_contents, [i, j])
-				print(i, j, case_contents)
-				
+				push_clause_from_wumpus(gs, case_contents, [i, j])
+				print(f"[{i}, {j}] - case_contents : {case_contents}")
+				print(f"Satisfiabilité : {gs.solve()}")
+				for vector in ww.get_knowledge() :
+					print(vector)
+				print("\n --- \n")
+	
 
+	print("\n\n==========================")
 	for vector in ww.get_knowledge() :
 		print(vector)
 
-	print(gs.solve())
-	print(gs.get_pretty_model())
-	print(ww.get_cost())
+	print(f"Satisfiabilité : {gs.solve()}")
+	print(f"Modele trouvé :\n {gs.get_pretty_model()} \n ---")
+	print(f"cout en or : {ww.get_cost()}")
