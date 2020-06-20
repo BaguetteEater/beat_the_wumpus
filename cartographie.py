@@ -2,17 +2,29 @@ from lib.gopherpysat import Gophersat
 from typing import Dict, Tuple, List, Union
 from wumpus import WumpusWorld
 import itertools
+import random
+import time
+import sys
 
 gophersat_exec = "./lib/gophersat-1.1.6"
 
 
+## On genere le voca avec toujours 4 chiffres pour extraire plus facilement les coordonnées lors de l'insertion des regles
+
 # Retourne une List composée de tous les symboles representant les positions possible du Wumpus
-# Ex: [W00, W01, W02, W03, W10, W11, W12, ..., W33] pour une grille 4*4
+# Ex: [W0000, W0001, W0002, W0003, W0100, W0101, W0102, ..., W0303] pour une grille 4*4
 def generate_wumpus_voca (taille_grille: int) :
 	res = []
 	for i in range(taille_grille):
 		for j in range(taille_grille):
-			res.append(f"W{i}{j}")
+			if (i < 10 and j < 10) :
+				res.append(f"W0{i}0{j}")
+			elif (i < 10 and j > 9) :
+				res.append(f"W0{i}{j}")
+			elif (i > 9 and j < 10) :
+				res.append(f"W{i}0{j}")
+			else :
+				res.append(f"W{i}{j}")
 
 	return res
 
@@ -20,7 +32,14 @@ def generate_stench_voca (taille_grille: int) :
 	res = []
 	for i in range(taille_grille):
 		for j in range(taille_grille):
-			res.append(f"S{i}{j}")
+			if (i < 10 and j < 10) :
+				res.append(f"S0{i}0{j}")
+			elif (i < 10 and j > 9) :
+				res.append(f"S0{i}{j}")
+			elif (i > 9 and j < 10) :
+				res.append(f"S{i}0{j}")
+			else :
+				res.append(f"S{i}{j}")
 
 	return res
 
@@ -28,7 +47,14 @@ def generate_gold_voca (taille_grille: int) :
 	res = []
 	for i in range(taille_grille):
 		for j in range(taille_grille):
-			res.append(f"G{i}{j}")
+			if (i < 10 and j < 10) :
+				res.append(f"G0{i}0{j}")
+			elif (i < 10 and j > 9) :
+				res.append(f"G0{i}{j}")
+			elif (i > 9 and j < 10) :
+				res.append(f"G{i}0{j}")
+			else :
+				res.append(f"G{i}{j}")
 
 	return res
 
@@ -36,7 +62,14 @@ def generate_brise_voca (taille_grille: int) :
 	res = []
 	for i in range(taille_grille):
 		for j in range(taille_grille):
-			res.append(f"B{i}{j}")
+			if (i < 10 and j < 10) :
+				res.append(f"B0{i}0{j}")
+			elif (i < 10 and j > 9) :
+				res.append(f"B0{i}{j}")
+			elif (i > 9 and j < 10) :
+				res.append(f"B{i}0{j}")
+			else :
+				res.append(f"B{i}{j}")
 
 	return res
 
@@ -44,9 +77,18 @@ def generate_trou_voca (taille_grille: int) :
 	res = []
 	for i in range(taille_grille):
 		for j in range(taille_grille):
-			res.append(f"T{i}{j}")
+			if (i < 10 and j < 10) :
+				res.append(f"T0{i}0{j}")
+			elif (i < 10 and j > 9) :
+				res.append(f"T0{i}{j}")
+			elif (i > 9 and j < 10) :
+				res.append(f"T{i}0{j}")
+			else :
+				res.append(f"T{i}{j}")
 
 	return res
+
+## Fin generation voca
 
 def insert_all_regles (gs:Gophersat, wumpus_voca:List, trou_voca:List, brise_voca:List, stench_voca:List) : 
 
@@ -72,11 +114,12 @@ def insert_only_one_wumpus_regle (gs:Gophersat, wumpus_voca:List) :
 
 	gs.push_pretty_clause(wumpus_voca)
 
+# Il n'y a ni wumpus, ni trou en (0,0)
 # Tested and Working
 def insert_safety_regle (gs:Gophersat) :
 
-	gs.push_pretty_clause(["-W00"])
-	gs.push_pretty_clause(["-T00"])
+	gs.push_pretty_clause(["-W0000"])
+	gs.push_pretty_clause(["-T0000"])
 
 # Wij -> -Tij
 # Tij -> -Wij
@@ -92,10 +135,17 @@ def insert_une_menace_par_case_regle (gs:Gophersat, wumpus_voca:List, trou_voca:
 		wumpus = wumpus_voca_pile.pop()
 		gs.push_pretty_clause([f"-{wumpus}", f"-{trou}"])
 		gs.push_pretty_clause([f"-{trou}", f"-{wumpus}"])
-		print(wumpus, trou)
 
 
-# Si il y a un trou en (i, j) Alors il y a une brise en (i-1, j), (i+1, j), (i, j-1) et (i, j+1)
+def int_to_two_digits_str (i:int, number_to_apply:int = 0) -> str :
+	i = i + number_to_apply
+
+	if(i < 10) :
+		return f"0{i}"
+	else :
+		return f"{i}"
+
+# Si il y a un trou en (i, j) alors il y a une brise en (i-1, j), (i+1, j), (i, j-1) et (i, j+1)
 # Tij -> B(i-1)j ET B(i+1)j ET Bi(j-1) ET Bi(j+1)
 # Devenant -Tij v B(i-1)j ; -Tij v B(i+1)j ; -Tij v Bi(j-1) ; -Tij v Bi(j+1)
 # Tested and working
@@ -103,53 +153,112 @@ def insert_trou_regle (gs:Gophersat, trou_voca:List, brise_voca:List) :
 
 	for trou in trou_voca :
 		
-		# Soit le symbole Tij
-		i = int(trou[1]) # On recupere l'index i
-		j = int(trou[2]) # On recupere l'index j
+		# Soit le symbole Tij, une chaine de caractere avec i et j appartient a [0..99]
+		# On enleve la lettre et on recupere i et j
+		ij = trou[1:]
+		i = int(ij[:2]) # On prend les deux premiers chiffres pour l'indice i
+		j = int(ij[2:]) # On prend les deux derniers chiffres pour l'indice j
+
+		i_moins_1 = int_to_two_digits_str(i, -1)
+		i_plus_1 = int_to_two_digits_str(i, 1)
+
+		j_moins_1 = int_to_two_digits_str(j, -1)
+		j_plus_1 = int_to_two_digits_str(j, 1)
+
+		i = int_to_two_digits_str(i)
+		j = int_to_two_digits_str(j)
 
 		brises = []
 
-		if f"B{i+1}{j}" in brise_voca :
-			brises.append(f"B{i+1}{j}")
+		if f"B{i_plus_1}{j}" in brise_voca :
+			brises.append(f"B{i_plus_1}{j}")
 
-		if f"B{i-1}{j}" in brise_voca :
-			brises.append(f"B{i-1}{j}")
+		if f"B{i_moins_1}{j}" in brise_voca :
+			brises.append(f"B{i_moins_1}{j}")
 
-		if f"B{i}{j+1}" in brise_voca :
-			brises.append(f"B{i}{j+1}")
+		if f"B{i}{j_plus_1}" in brise_voca :
+			brises.append(f"B{i}{j_plus_1}")
 
-		if f"B{i}{j-1}" in brise_voca :
-			brises.append(f"B{i}{j-1}")
+		if f"B{i}{j_moins_1}" in brise_voca :
+			brises.append(f"B{i}{j_moins_1}")
 
 		for brise in brises :
 			gs.push_pretty_clause([f"-{trou}", brise])
 
 
-# On insere -Bij ou T(i-1)j ou T(i+1)j ou Ti(j-1) ou Ti(j+1)
+# Bij <-> ( T(i-1)j ou T(i+1)j ou Ti(j-1) ou Ti(j+1) )
+# C'est a dire que une brise en (i, j) equivault à au moins un trou autour
+# On insere -Bij ou T(i-1)j ou T(i+1)j ou Ti(j-1) ou Ti(j+1) ; -Tij ou B(i-1)j ou B(i+1)j ou Bi(j-1) ou Bi(j+1)
 # Tested and working
 def insert_brise_regle (gs:Gophersat, brise_voca:List, trou_voca:List) :
 	
+	#-Bij ou T(i-1)j ou T(i+1)j ou Ti(j-1) ou Ti(j+1)
 	for brise in brise_voca :
 		
 		# Soit le symbole Bij
-		i = int(brise[1]) # On recupere l'index i
-		j = int(brise[2]) # On recupere l'index j
+		# On enleve la lettre et on recupere i et j
+		ij = brise[1:]
+		i = int(ij[:2]) # On prend les deux premiers chiffres pour l'indice i
+		j = int(ij[2:]) # On prend les deux derniers chiffres pour l'indice j
+
+		i_moins_1 = int_to_two_digits_str(i, -1)
+		i_plus_1 = int_to_two_digits_str(i, 1)
+
+		j_moins_1 = int_to_two_digits_str(j, -1)
+		j_plus_1 = int_to_two_digits_str(j, 1)
+
+		i = int_to_two_digits_str(i)
+		j = int_to_two_digits_str(j)
 
 		trous = []
 
-		if f"T{i+1}{j}" in trou_voca :
-			trous.append(f"T{i+1}{j}")
+		if f"T{i_plus_1}{j}" in trou_voca :
+			trous.append(f"T{i_plus_1}{j}")
 
-		if f"T{i-1}{j}" in trou_voca :
-			trous.append(f"T{i-1}{j}")
+		if f"T{i_moins_1}{j}" in trou_voca :
+			trous.append(f"T{i_moins_1}{j}")
 
-		if f"T{i}{j+1}" in trou_voca :
-			trous.append(f"T{i}{j+1}")
+		if f"T{i}{j_plus_1}" in trou_voca :
+			trous.append(f"T{i}{j_plus_1}")
 
-		if f"T{i}{j-1}" in trou_voca :
-			trous.append(f"T{i}{j-1}")
+		if f"T{i}{j_moins_1}" in trou_voca :
+			trous.append(f"T{i}{j_moins_1}")
 
 		clause = trous + [f"-{brise}"]
+		gs.push_pretty_clause(clause)
+
+	# -Tij ou B(i-1)j ou B(i+1)j ou Bi(j-1) ou Bi(j+1)
+	for trou in trou_voca :
+
+		# Soit le symbole Tij
+		ij = trou[1:] # On eneleve la lettre
+		i = int(ij[:2]) # On prend les deux premiers chiffres pour l'indice i
+		j = int(ij[2:]) # On prend les deux derniers chiffres pour l'indice j
+
+		i_moins_1 = int_to_two_digits_str(i, -1)
+		i_plus_1 = int_to_two_digits_str(i, 1)
+
+		j_moins_1 = int_to_two_digits_str(j, -1)
+		j_plus_1 = int_to_two_digits_str(j, 1)
+
+		i = int_to_two_digits_str(i)
+		j = int_to_two_digits_str(j)
+
+		brises = []
+
+		if f"B{i_plus_1}{j}" in brise_voca :
+			brises.append(f"B{i_plus_1}{j}")
+
+		if f"B{i_moins_1}{j}" in brise_voca :
+			brises.append(f"B{i_moins_1}{j}")
+
+		if f"B{i}{j_plus_1}" in brise_voca :
+			brises.append(f"B{i}{j_plus_1}")
+
+		if f"B{i}{j_moins_1}" in brise_voca :
+			brises.append(f"B{i}{j_moins_1}")
+
+		clause = brises + [f"-{trou}"]
 		gs.push_pretty_clause(clause)
 
 
@@ -162,22 +271,32 @@ def insert_wumpus_stench_regle (gs:Gophersat, wumpus_voca:List, stench_voca:List
 	for wumpus in wumpus_voca :
 		
 		# Soit le symbole Tij
-		i = int(wumpus[1]) # On recupere l'index i
-		j = int(wumpus[2]) # On recupere l'index j
+		ij = wumpus[1:] # On enleve la lettre
+		i = int(ij[:2]) # On prend les deux premiers chiffres pour l'indice i
+		j = int(ij[2:]) # On prend les deux derniers chiffres pour l'indice j
+
+		i_moins_1 = int_to_two_digits_str(i, -1)
+		i_plus_1 = int_to_two_digits_str(i, 1)
+
+		j_moins_1 = int_to_two_digits_str(j, -1)
+		j_plus_1 = int_to_two_digits_str(j, 1)
+
+		i = int_to_two_digits_str(i)
+		j = int_to_two_digits_str(j)
 
 		stenches = []
 
-		if f"S{i+1}{j}" in stench_voca :
-			stenches.append(f"S{i+1}{j}")
+		if f"S{i_plus_1}{j}" in stench_voca :
+			stenches.append(f"S{i_plus_1}{j}")
 
-		if f"S{i-1}{j}" in stench_voca :
-			stenches.append(f"S{i-1}{j}")
+		if f"S{i_moins_1}{j}" in stench_voca :
+			stenches.append(f"S{i_moins_1}{j}")
 
-		if f"S{i}{j+1}" in stench_voca :
-			stenches.append(f"S{i}{j+1}")
+		if f"S{i}{j_plus_1}" in stench_voca :
+			stenches.append(f"S{i}{j_plus_1}")
 
-		if f"S{i}{j-1}" in stench_voca :
-			stenches.append(f"S{i}{j-1}")
+		if f"S{i}{j_moins_1}" in stench_voca :
+			stenches.append(f"S{i}{j_moins_1}")
 
 		for stench in stenches :
 			gs.push_pretty_clause([f"-{wumpus}", stench])
@@ -190,22 +309,32 @@ def insert_stench_regle (gs:Gophersat, wumpus_voca:List, stench_voca:List) :
 	for stench in stench_voca :
 		
 		# Soit le symbole Wij
-		i = int(stench[1]) # On recupere l'index i
-		j = int(stench[2]) # On recupere l'index j
+		ij = stench[1:] # On enleve la lettre
+		i = int(ij[:2]) # On prend les deux premiers chiffres pour l'indice i
+		j = int(ij[2:]) # On prend les deux derniers chiffres pour l'indice j
+
+		i_moins_1 = int_to_two_digits_str(i, -1)
+		i_plus_1 = int_to_two_digits_str(i, 1)
+
+		j_moins_1 = int_to_two_digits_str(j, -1)
+		j_plus_1 = int_to_two_digits_str(j, 1)
+
+		i = int_to_two_digits_str(i)
+		j = int_to_two_digits_str(j)
 
 		wumpuses = []
 
-		if f"W{i+1}{j}" in wumpus_voca :
-			wumpuses.append(f"W{i+1}{j}")
+		if f"W{i_plus_1}{j}" in wumpus_voca :
+			wumpuses.append(f"W{i_plus_1}{j}")
 
-		if f"W{i-1}{j}" in wumpus_voca :
-			wumpuses.append(f"W{i-1}{j}")
+		if f"W{i_moins_1}{j}" in wumpus_voca :
+			wumpuses.append(f"W{i_moins_1}{j}")
 
-		if f"W{i}{j+1}" in wumpus_voca :
-			wumpuses.append(f"W{i}{j+1}")
+		if f"W{i}{j_plus_1}" in wumpus_voca :
+			wumpuses.append(f"W{i}{j_plus_1}")
 
-		if f"W{i}{j-1}" in wumpus_voca :
-			wumpuses.append(f"W{i}{j-1}")
+		if f"W{i}{j_moins_1}" in wumpus_voca :
+			wumpuses.append(f"W{i}{j_moins_1}")
 
 		clause = wumpuses + [f"-{stench}"]
 		gs.push_pretty_clause(clause)
@@ -213,7 +342,7 @@ def insert_stench_regle (gs:Gophersat, wumpus_voca:List, stench_voca:List) :
 
 # Prend un caractere de la chaine de description d'une case et la position du contenu
 # Retourne un Tuple avec les clauses a inserer dans le modèle
-def wumpus_to_clause (single_case_content:str, position:Tuple[int, int]) :
+def wumpus_to_clause (single_case_content:str, position:Tuple[str, str]) :
 	switcher = {
 		".":[
 				f"-W{position[0]}{position[1]}", 
@@ -230,15 +359,21 @@ def wumpus_to_clause (single_case_content:str, position:Tuple[int, int]) :
 	}
 	return switcher.get(single_case_content, -1)
 
-def push_clause_from_wumpus (gs:Gophersat, case_contents:str, position:Tuple[int, int]):
+def push_clause_from_wumpus (gs:Gophersat, case_contents:str, position:Tuple[str, str], enable_log:bool = False):
+
+	if enable_log :
+		print(f"contents is : {case_contents}")
 
 	facts = []
 	for case_content in case_contents :
 		
+		if enable_log :
+			print(f"inserting from wumpus : {case_content}\n")
+		
 		tmp_facts = wumpus_to_clause(case_content, position)
 		
 		if tmp_facts == -1 :
-			print("Error : Invalid case contents, have you inserted multiple case content at once ?")
+			print("Error : Invalid case contents : wumpus to clause")
 			return -1
 		else :
 			facts = facts + tmp_facts	
@@ -250,7 +385,7 @@ def push_clause_from_wumpus (gs:Gophersat, case_contents:str, position:Tuple[int
 
 # On ajoute les faits perçu de par leur non-presence
 # Exemple : On repere Bij, cela veut dire qu'il n'a pas de wumpus, ni de trou, ni de stench etc....
-def get_implicit_negative_facts (facts:List, position:Tuple[int, int]) :
+def get_implicit_negative_facts (facts:List, position:Tuple[str, str]) :
 	possible_case_content = ["W", "T", "G", "S", "B"]
 	need_to_add = True
 	facts_to_add = []
@@ -271,8 +406,7 @@ def get_implicit_negative_facts (facts:List, position:Tuple[int, int]) :
 
 # True si un wumpus en i, j est possible
 # False si un wumpus i, j est impossible
-def is_wumpus_possible(gs, position:Tuple[int, int]) -> bool :
-
+def is_wumpus_possible(gs, position:Tuple[str, str]) -> bool :
 	gs.push_pretty_clause([f"W{position[0]}{position[1]}"])
 
 	res = gs.solve()
@@ -281,8 +415,7 @@ def is_wumpus_possible(gs, position:Tuple[int, int]) -> bool :
 
 	return res
 
-def is_trou_possible(gs, position:Tuple[int, int]) -> bool :
-
+def is_trou_possible(gs, position:Tuple[str, str]) -> bool :
 	gs.push_pretty_clause([f"T{position[0]}{position[1]}"])
 
 	res = gs.solve()
@@ -291,15 +424,23 @@ def is_trou_possible(gs, position:Tuple[int, int]) -> bool :
 
 	return res
 
-def should_I_be_cautious (gs:Gophersat, position:Tuple[int, int]) -> bool :
+def should_I_be_cautious (gs:Gophersat, position:Tuple[str, str], enable_log:bool = False) -> bool :
 
-	print(f"wumpus possible : {is_wumpus_possible(gs, position)} ----- trou possible : {is_trou_possible(gs, position)}")
+	if enable_log :
+		print(f"wumpus possible : {is_wumpus_possible(gs, position)} ----- trou possible : {is_trou_possible(gs, position)}")
+
 	return is_wumpus_possible(gs, position) or is_trou_possible(gs, position)
 
+def print_case_contents_post_insertion (i:int, j:int, case_contents, ww:WumpusWorld, solvability:bool) :
+	print(f"[{i}, {j}] - case_contents : {case_contents}")
+	print(f"Satisfiabilité : {solvability}")
 
-if __name__ == "__main__":
+	for vector in ww.get_knowledge() :
+		print(vector)
+	print("\n --- \n")
 
-	taille_grille = 4
+
+def cartographier (ww:WumpusWorld, taille_grille:int = 4, enable_log:bool = False) :
 
 	wumpus_voca = generate_wumpus_voca(taille_grille)
 	gold_voca = generate_gold_voca(taille_grille)
@@ -313,42 +454,71 @@ if __name__ == "__main__":
 
 	# On modelise les regles
 	insert_all_regles(gs, wumpus_voca, trou_voca, brise_voca, stench_voca)
-	print(f"Modelisation reussie : {gs.solve()}")
 
-	# On crée le monde
-	ww = WumpusWorld()
-	print(ww)
+	if(gs.solve() and enable_log) :
+		print(f"vocabulaire inseré sans contradiction")
+		print(ww)
+	elif (gs.solve() == False) :
+		print(f"contradiction dans le vocabulaire inseré")
+		return -1
 
 	# On analyse notre position, qui est (0, 0) pour 0 gold
+	# On tranforme [0, 0] en [00, 00]
 	# Puis on ajoute le resultat au modèle
 	case_contents = ww.get_percepts()[2]
-	push_clause_from_wumpus(gs, case_contents, ww.get_position())
-	print(f"{gs.solve()}")
-	print(f"{gs.get_pretty_model()}")
+	position_start = [
+		int_to_two_digits_str(ww.get_position()[0]), 
+		int_to_two_digits_str(ww.get_position()[1])
+	]
+	push_clause_from_wumpus(gs, case_contents, position_start)
 
-	print("==========================\n\n")
+	if(enable_log) :
+		print(f"{gs.solve()}")
+		print(f"{gs.get_pretty_model()}")
+		print("==========================\n\n")
 
-	for i in range(4) :
-		for j in range(4) :
+	for i in range(taille_grille) :
+		for j in range(taille_grille) :
 			if i != 0 or j != 0 : # On ne regarde pas la premiere case pour economiser l'argent
 				
-				if should_I_be_cautious(gs, [i, j]) :
+				if should_I_be_cautious(gs, [int_to_two_digits_str(i), int_to_two_digits_str(j)]) :
 					case_contents = ww.cautious_probe(i, j)[1]
 				else :
 					case_contents = ww.probe(i, j)[1]
 
-				push_clause_from_wumpus(gs, case_contents, [i, j])
-				print(f"[{i}, {j}] - case_contents : {case_contents}")
-				print(f"Satisfiabilité : {gs.solve()}")
-				for vector in ww.get_knowledge() :
-					print(vector)
-				print("\n --- \n")
+				if(push_clause_from_wumpus(gs, case_contents, [int_to_two_digits_str(i), int_to_two_digits_str(j)]) == -1) : # Si erreur lors de l'insertion de clauses on arrete tout : on fausse le modele
+					gs.solve()
+					print(f"Modele :\n {gs.get_pretty_model()} \n ---")
+					return -1
+
+				if(enable_log) :
+					print_case_contents_post_insertion(i, j, case_contents, ww, gs.solve())
 	
+	if (gs.solve() == False) :
+		return -1
 
-	print("\n\n==========================")
-	for vector in ww.get_knowledge() :
-		print(vector)
+	if(enable_log) :
+		print("\n\n==========================")
+		
+		for vector in ww.get_knowledge() :
+			print(vector)
 
-	print(f"Satisfiabilité : {gs.solve()}")
-	print(f"Modele trouvé :\n {gs.get_pretty_model()} \n ---")
-	print(f"cout en or : {ww.get_cost()}")
+		print(f"Satisfiabilité : {gs.solve()}")
+		print(f"Modele trouvé :\n {gs.get_pretty_model()} \n ---")
+		print(f"cout en or : {ww.get_cost()}")
+
+if __name__ == "__main__":
+
+	taille_max = 16
+	nb_essais = 20
+	for taille_grille in range (15, taille_max) :
+		for i in range(nb_essais) :
+
+			time.sleep(0.5)
+			ww = WumpusWorld(taille_grille, True)
+			
+			if(cartographier(ww, taille_grille, True) == -1) :
+					print(f"echec au {i}eme essai sur une taille de : {taille_grille}x{taille_grille}")
+					sys.exit(-1)
+
+		print(f"Les {nb_essais} essais sur une taille de grille de {taille_grille}x{taille_grille} ont reussi !\n")
