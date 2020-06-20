@@ -3,3 +3,4 @@ examples_cnf
 check_install.py
 Wumpus_truc.ipynb
 .ipynb_checkpoints/
+__pycache__/
