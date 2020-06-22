@@ -1,10 +1,10 @@
 from lib.gopherpysat import Gophersat
 from typing import Dict, Tuple, List, Union
-from wumpus import WumpusWorld
 import itertools
 import random
 import time
 import sys
+from wumpus_cli.lib.wumpus_client import WumpusWorldRemote
 
 gophersat_exec = "./lib/gophersat-1.1.6"
 
@@ -408,7 +408,6 @@ def get_implicit_negative_facts (facts:List, position:Tuple[str, str]) :
 # False si un wumpus i, j est impossible
 def is_wumpus_possible(gs, position:Tuple[str, str]) -> bool :
 	gs.push_pretty_clause([f"W{position[0]}{position[1]}"])
-
 	res = gs.solve()
 
 	gs.pop_clause()
@@ -424,6 +423,69 @@ def is_trou_possible(gs, position:Tuple[str, str]) -> bool :
 
 	return res
 
+def idx_str_op (i_str:str, number_to_apply:int) -> str :
+	
+	i = int(i_str)
+
+	i = i + number_to_apply
+
+	if(i < 10) :
+		return f"0{i}"
+	else :
+		return f"{i}"
+
+# si le wumpus est possible en (i, j)
+# on regarde si il possible en [(i-1, j-1), (i-1, j+1), (i+1, j-1), (i+1, j+1)]
+# Si il n'est pas possible a ces coord, alors il est obligatoirement au seul endroit possible
+def is_wumpus_mandatory(gs, position:Tuple[str, str], wumpus_voca) -> bool :
+	i = position[0]
+	j = position[1]
+
+	pos_to_test = [
+		f"W{idx_str_op(i, -1)}{idx_str_op(j, -1)}",
+		f"W{idx_str_op(i, -1)}{idx_str_op(j, 1)}",
+		f"W{idx_str_op(i, 1)}{idx_str_op(j, -1)}",
+		f"W{idx_str_op(i, 1)}{idx_str_op(j, 1)}"
+	]
+
+	res = []
+	for pos in pos_to_test :
+		if pos in wumpus_voca :
+			gs.push_pretty_clause([pos])
+			res.append(gs.solve())
+			gs.pop_clause()
+
+	for possibility in res :
+		if possibility :
+			return False;
+
+	return True;
+
+def is_trou_mandatory(gs, position:Tuple[str, str], trou_voca) -> bool :
+
+	i = position[0]
+	j = position[1]
+
+	pos_to_test = [
+		f"T{idx_str_op(i, -1)}{idx_str_op(j, -1)}",
+		f"T{idx_str_op(i, -1)}{idx_str_op(j, 1)}",
+		f"T{idx_str_op(i, 1)}{idx_str_op(j, -1)}",
+		f"T{idx_str_op(i, 1)}{idx_str_op(j, 1)}"
+	]
+
+	res = []
+	for pos in pos_to_test :
+		if pos in trou_voca :
+			gs.push_pretty_clause([pos])
+			res.append(gs.solve())
+			gs.pop_clause()
+
+	for possibility in res :
+		if possibility :
+			return False;
+
+	return True;
+
 def should_I_be_cautious (gs:Gophersat, position:Tuple[str, str], enable_log:bool = False) -> bool :
 
 	if enable_log :
@@ -431,16 +493,13 @@ def should_I_be_cautious (gs:Gophersat, position:Tuple[str, str], enable_log:boo
 
 	return is_wumpus_possible(gs, position) or is_trou_possible(gs, position)
 
-def print_case_contents_post_insertion (i:int, j:int, case_contents, ww:WumpusWorld, solvability:bool) :
+def print_case_contents_post_insertion (i:int, j:int, case_contents, wwr:WumpusWorldRemote, solvability:bool) :
 	print(f"[{i}, {j}] - case_contents : {case_contents}")
 	print(f"Satisfiabilité : {solvability}")
-
-	for vector in ww.get_knowledge() :
-		print(vector)
 	print("\n --- \n")
 
 
-def cartographier (ww:WumpusWorld, taille_grille:int = 4, enable_log:bool = False) :
+def cartographier (wwr:WumpusWorldRemote, taille_grille:int = 4, enable_log:bool = False) :
 
 	wumpus_voca = generate_wumpus_voca(taille_grille)
 	gold_voca = generate_gold_voca(taille_grille)
@@ -457,68 +516,83 @@ def cartographier (ww:WumpusWorld, taille_grille:int = 4, enable_log:bool = Fals
 
 	if(gs.solve() and enable_log) :
 		print(f"vocabulaire inseré sans contradiction")
-		print(ww)
+		print(wwr)
 	elif (gs.solve() == False) :
 		print(f"contradiction dans le vocabulaire inseré")
 		return -1
 
-	# On analyse notre position, qui est (0, 0) pour 0 gold
-	# On tranforme [0, 0] en [00, 00]
-	# Puis on ajoute le resultat au modèle
-	case_contents = ww.get_percepts()[2]
-	position_start = [
-		int_to_two_digits_str(ww.get_position()[0]), 
-		int_to_two_digits_str(ww.get_position()[1])
-	]
-	push_clause_from_wumpus(gs, case_contents, position_start)
-
 	if(enable_log) :
+		print("\nBefore loop log :\n")
 		print(f"{gs.solve()}")
 		print(f"{gs.get_pretty_model()}")
-		print("==========================\n\n")
+		print("\n==========================\n")
+
+	i_str = ""
+	j_str = ""
+
+	status, percepts, cost = wwr.probe(0,0)
+	print(status, percepts, cost)
 
 	for i in range(taille_grille) :
 		for j in range(taille_grille) :
-			if i != 0 or j != 0 : # On ne regarde pas la premiere case pour economiser l'argent
-				
-				if should_I_be_cautious(gs, [int_to_two_digits_str(i), int_to_two_digits_str(j)]) :
-					case_contents = ww.cautious_probe(i, j)[1]
-				else :
-					case_contents = ww.probe(i, j)[1]
+			if i != 0 or j != 0 :
 
-				if(push_clause_from_wumpus(gs, case_contents, [int_to_two_digits_str(i), int_to_two_digits_str(j)]) == -1) : # Si erreur lors de l'insertion de clauses on arrete tout : on fausse le modele
+				i_str = int_to_two_digits_str(i)
+				j_str = int_to_two_digits_str(j)
+
+				if is_wumpus_possible(gs, [i_str, j_str]) :
+					if is_wumpus_mandatory(gs, [i_str, j_str], wumpus_voca) :
+						status, percepts, cost = wwr.know_wumpus(i,j)
+						if percepts == "Correct wumpus position." :
+							percepts = "W"
+					else :
+						status, percepts, cost = wwr.cautious_probe(i, j)
+
+				elif is_trou_possible(gs, [i_str, j_str]) :
+					if is_trou_mandatory(gs, [i_str, j_str], trou_voca) :
+						status, percepts, cost = wwr.know_pit(i,j)
+						if percepts == "Correct pit position." :
+							percepts = "P"
+					else :
+						status, percepts, cost = wwr.cautious_probe(i, j)
+
+				else :
+					status, percepts, cost = wwr.probe(i,j)
+
+				print(status, percepts, cost)
+
+				if(push_clause_from_wumpus(gs, percepts, [i_str, j_str]) == -1) : # Si erreur lors de l'insertion de clauses on arrete tout : on fausse le modele
 					gs.solve()
 					print(f"Modele :\n {gs.get_pretty_model()} \n ---")
 					return -1
 
 				if(enable_log) :
-					print_case_contents_post_insertion(i, j, case_contents, ww, gs.solve())
+					print_case_contents_post_insertion(i, j, percepts, wwr, gs.solve())
 	
 	if (gs.solve() == False) :
 		return -1
 
 	if(enable_log) :
 		print("\n\n==========================")
-		
-		for vector in ww.get_knowledge() :
-			print(vector)
 
 		print(f"Satisfiabilité : {gs.solve()}")
 		print(f"Modele trouvé :\n {gs.get_pretty_model()} \n ---")
-		print(f"cout en or : {ww.get_cost()}")
 
 if __name__ == "__main__":
 
-	taille_max = 16
-	nb_essais = 20
-	for taille_grille in range (15, taille_max) :
-		for i in range(nb_essais) :
+	server = "http://localhost:8080"
+	groupe_id = "Binôme de projet 45"  # votre vrai numéro de groupe
+	names = "Ulysse Brehon et Luis Enrique Gonzalez Hilario"  # vos prénoms et noms
 
-			time.sleep(0.5)
-			ww = WumpusWorld(taille_grille, True)
+	try:
+		wwr = WumpusWorldRemote(server, groupe_id, names)
+	except HTTPError as e:
+		print(e)
+		print("Try to close the server (Ctrl-C in terminal) and restart it")
+		sys.exit(-1)
+	
+	status, msg, taille_grille = wwr.next_maze()
 			
-			if(cartographier(ww, taille_grille, True) == -1) :
-					print(f"echec au {i}eme essai sur une taille de : {taille_grille}x{taille_grille}")
-					sys.exit(-1)
-
-		print(f"Les {nb_essais} essais sur une taille de grille de {taille_grille}x{taille_grille} ont reussi !\n")
+	if(cartographier(wwr, taille_grille, True) == -1) :
+			print(f"echec sur une taille de : {taille_grille}x{taille_grille}")
+			sys.exit(-1)
