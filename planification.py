@@ -34,24 +34,46 @@ def successeurs (position:[int, int], size:int) -> Tuple :
 	return res
 
 # Soit une grille de size x size, on va devoir parcourir size² etats
-def parcours_largeur_simple (size:int) -> Tuple :
+def parcours_largeur_simple (size:int) -> List :
 
-	liste_etat = [[0,0]]
+	liste_etats = [[0,0]]
 
-	for etat in liste_etat :
-		
-		succs = successeurs([etat[0], etat[1]], size)
+	for etat in liste_etats :
+
+		succs = successeurs(etat, size)
 		for s in succs :
-			
-			if s not in liste_etat :
-				liste_etat.append(s)
+			if s not in liste_etats :
+				liste_etats.append(s)
 
-	return liste_etat
+	return liste_etats
 
-#def parcours_largeur_memoire (size:int) -> Tuple :
-	#chemin = {}
+def parcours_largeur_memoire (size:int, init:Tuple[int, int], but:Tuple[int, int]) -> List :
+	
+	predecesseurs = {}
+	liste_etats = [init]
 
+	for etat in liste_etats :
+		
+		if etat == but : # On a trouvé notre but, on s'arrete
+			break
 
+		succs = successeurs(etat, size)
+		for s in succs :
+			if s not in liste_etats :
+				predecesseurs[tuple(s)] = tuple(etat)
+				liste_etats.append(s)
+	
+	## Init de la boucle
+	step = tuple(but) # On cast le but en tuple, car le dictionnaire n'accepte que ça en guise de clef (pas le droit aux listes)
+	chemin = [step] # On ajoute le but en tete de liste de notre chemin
+	pred = predecesseurs.get(step, -1) # le deuxieme argument est le retour si il n'y a pas de valeur attachée a la clef
+
+	while pred != -1 : 
+		chemin.append(pred)
+		step = pred
+		pred = predecesseurs.get(step, -1)
+
+	return chemin
 
 if __name__ == "__main__":
 
@@ -82,8 +104,10 @@ if __name__ == "__main__":
 		#############
 		## Phase 2 ##
 		#############
-		largeur_sans_memoire = parcours_largeur_simple(size)
-		#print(largeur_sans_memoire)
+		liste_etat_largeur = parcours_largeur_simple(size)
+		chemin = parcours_largeur_memoire(size, [0, 0], [size-1, size-1])
+
+		print(chemin)
 
 		status, msg, gold = wwr.maze_completed()
 		print(f"Ca coute {gold}")
