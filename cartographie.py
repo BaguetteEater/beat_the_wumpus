@@ -8,7 +8,6 @@ from wumpus_cli.lib.wumpus_client import WumpusWorldRemote
 
 gophersat_exec = "./lib/gophersat-1.1.6"
 
-
 ## On genere le voca avec toujours 4 chiffres pour extraire plus facilement les coordonnées lors de l'insertion des regles
 
 # Retourne une List composée de tous les symboles representant les positions possible du Wumpus
@@ -359,7 +358,7 @@ def wumpus_to_clause (single_case_content:str, position:Tuple[str, str]) :
 	}
 	return switcher.get(single_case_content, -1)
 
-def push_clause_from_wumpus (gs:Gophersat, case_contents:str, position:Tuple[str, str], enable_log:bool = False):
+def push_clause_from_wumpus (gs:Gophersat, case_contents:str, position:Tuple[str, str], is_from_know_method:bool = False, enable_log:bool = False):
 
 	if enable_log :
 		print(f"contents is : {case_contents}")
@@ -378,7 +377,8 @@ def push_clause_from_wumpus (gs:Gophersat, case_contents:str, position:Tuple[str
 		else :
 			facts = facts + tmp_facts	
 
-	facts = facts + get_implicit_negative_facts(facts, position)	
+	if is_from_know_method == False : # Si on utilise pas la methode know, on est certains de ce qu'il n'y a pas dans la case
+		facts = facts + get_implicit_negative_facts(facts, position)
 
 	for fact in facts : # On doit inserer les clauses une a une
 		gs.push_pretty_clause([fact])
@@ -461,30 +461,64 @@ def is_wumpus_mandatory(gs, position:Tuple[str, str], wumpus_voca) -> bool :
 
 	return True;
 
-def is_trou_mandatory(gs, position:Tuple[str, str], trou_voca) -> bool :
+def get_brises_to_test (carte, i:str, j:str) -> Tuple :
+	
+	b_tmp = [
+		[int(i)-1, int(j)], # On regarde derriere la case et en haut, on ne peut connaitre qu'eux
+		[int(i), int(j)-1]
+	]
+
+	b_to_test = []
+	for b in b_tmp :
+		if b[0] > -1 and b[1] > -1 :
+			if "B" in carte[b[0]][b[1]] :
+				b_to_test.append(b)
+
+	return b_to_test
+
+# On recupere toutes les cases autours de la brise qui ne sont pas la position que l'on teste
+def get_pit_to_test (brise_pos:Tuple, i:str, j:str, taille_grille:int) -> Tuple :
+
+	pit_tmp = [
+			[brise_pos[0]-1, brise_pos[1]],
+			[brise_pos[0], brise_pos[1]-1],
+			[brise_pos[0]+1, brise_pos[1]],
+			[brise_pos[0], brise_pos[1]+1]
+		]
+
+	pit_to_test = []
+	for p in pit_tmp :
+		if p[0] > -1 and p[1] > -1 :
+			if p[0] < taille_grille and p[1] < taille_grille :
+				if p[0] != int(i) or p[1] != int(j) :
+					pit_to_test.append(p)
+
+	return pit_to_test
+
+
+def is_trou_mandatory(gs, position:Tuple[str, str], trou_voca, carte, taille_grille) -> bool :
 
 	i = position[0]
 	j = position[1]
 
-	pos_to_test = [
-		f"T{idx_str_op(i, -1)}{idx_str_op(j, -1)}",
-		f"T{idx_str_op(i, -1)}{idx_str_op(j, 1)}",
-		f"T{idx_str_op(i, 1)}{idx_str_op(j, -1)}",
-		f"T{idx_str_op(i, 1)}{idx_str_op(j, 1)}"
-	]
+	b_to_test = get_brises_to_test(carte, i, j)
 
-	res = []
-	for pos in pos_to_test :
-		if pos in trou_voca :
-			gs.push_pretty_clause([pos])
-			res.append(gs.solve())
-			gs.pop_clause()
+	if len(b_to_test) < 2 : return False # Si il n'y a qu'une brise autour (ou moins), on ne peut pas savoir si c'est obligatoire
 
-	for possibility in res :
-		if possibility :
-			return False;
+	for b in b_to_test : # On regarde autour des brises si il existe des trous auxquels ils correspondent
+		
+		pit_to_test = get_pit_to_test(b, i, j, taille_grille)
 
-	return True;
+		# On va regarder si il existe un trou dans les positions récuperées
+		# Si il en existe au moins un, l'obligation de trou dans la position [i, j] est compromise
+		# il faut donc faire attention
+		# Sinon, le trou est obligatoirement là
+		for p in pit_to_test :
+			if "P" in carte[p[0]][p[1]] :
+				return False
+
+	return True
+
 
 def should_I_be_cautious (gs:Gophersat, position:Tuple[str, str], enable_log:bool = False) -> bool :
 
@@ -498,8 +532,10 @@ def print_case_contents_post_insertion (i:int, j:int, case_contents, wwr:WumpusW
 	print(f"Satisfiabilité : {solvability}")
 	print("\n --- \n")
 
+def init_res (taille_grille) -> Tuple[Tuple] :
+	return [['?' for j in range(taille_grille)] for i in range(taille_grille)]
 
-def cartographier (wwr:WumpusWorldRemote, taille_grille:int = 4, enable_log:bool = False) :
+def cartographier (wwr:WumpusWorldRemote, taille_grille:int = 4, enable_log:bool = False):
 
 	wumpus_voca = generate_wumpus_voca(taille_grille)
 	gold_voca = generate_gold_voca(taille_grille)
@@ -510,6 +546,8 @@ def cartographier (wwr:WumpusWorldRemote, taille_grille:int = 4, enable_log:bool
 	voc = wumpus_voca + gold_voca + stench_voca + brise_voca + trou_voca
 
 	gs = Gophersat(gophersat_exec, voc)
+
+	res = init_res(taille_grille)
 
 	# On modelise les regles
 	insert_all_regles(gs, wumpus_voca, trou_voca, brise_voca, stench_voca)
@@ -532,6 +570,9 @@ def cartographier (wwr:WumpusWorldRemote, taille_grille:int = 4, enable_log:bool
 
 	status, percepts, cost = wwr.probe(0,0)
 	print(status, percepts, cost)
+	res[0][0] = percepts
+	is_from_know_method = False
+	push_clause_from_wumpus(gs, percepts, ["00", "00"], is_from_know_method, False)
 
 	for i in range(taille_grille) :
 		for j in range(taille_grille) :
@@ -542,29 +583,39 @@ def cartographier (wwr:WumpusWorldRemote, taille_grille:int = 4, enable_log:bool
 
 				if is_wumpus_possible(gs, [i_str, j_str]) :
 					if is_wumpus_mandatory(gs, [i_str, j_str], wumpus_voca) :
+						
 						status, percepts, cost = wwr.know_wumpus(i,j)
 						if percepts == "Correct wumpus position." :
 							percepts = "W"
+							is_from_know_method = True
+
 					else :
 						status, percepts, cost = wwr.cautious_probe(i, j)
 
 				elif is_trou_possible(gs, [i_str, j_str]) :
-					if is_trou_mandatory(gs, [i_str, j_str], trou_voca) :
+					if is_trou_mandatory(gs, [i_str, j_str], trou_voca, res, taille_grille) :
+						
 						status, percepts, cost = wwr.know_pit(i,j)
 						if percepts == "Correct pit position." :
 							percepts = "P"
+							is_from_know_method = True
+
 					else :
 						status, percepts, cost = wwr.cautious_probe(i, j)
 
 				else :
 					status, percepts, cost = wwr.probe(i,j)
 
-				print(status, percepts, cost)
+				print(status, percepts, cost, i, j)
 
-				if(push_clause_from_wumpus(gs, percepts, [i_str, j_str]) == -1) : # Si erreur lors de l'insertion de clauses on arrete tout : on fausse le modele
+				res[i][j] = percepts
+
+				if(push_clause_from_wumpus(gs, percepts, [i_str, j_str], is_from_know_method, False) == -1) : # Si erreur lors de l'insertion de clauses on arrete tout : on fausse le modele
 					gs.solve()
 					print(f"Modele :\n {gs.get_pretty_model()} \n ---")
 					return -1
+
+				is_from_know_method = False
 
 				if(enable_log) :
 					print_case_contents_post_insertion(i, j, percepts, wwr, gs.solve())
@@ -577,6 +628,8 @@ def cartographier (wwr:WumpusWorldRemote, taille_grille:int = 4, enable_log:bool
 
 		print(f"Satisfiabilité : {gs.solve()}")
 		print(f"Modele trouvé :\n {gs.get_pretty_model()} \n ---")
+
+	return res
 
 if __name__ == "__main__":
 
@@ -592,7 +645,9 @@ if __name__ == "__main__":
 		sys.exit(-1)
 	
 	status, msg, taille_grille = wwr.next_maze()
-			
-	if(cartographier(wwr, taille_grille, True) == -1) :
+	res = cartographier(wwr, taille_grille, True)
+	if(res == -1) :
 			print(f"echec sur une taille de : {taille_grille}x{taille_grille}")
 			sys.exit(-1)
+
+	print(res)
