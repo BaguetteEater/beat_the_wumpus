@@ -14,7 +14,7 @@ def estLibre(i:int, j:int) -> bool :
 
 	return True
 
-def successeurs (position:[int, int], size:int) -> Tuple :
+def successeurs (position:Tuple[int, int], size:int) -> Tuple :
 	i = position[0]
 	j = position[1]
 
@@ -34,7 +34,7 @@ def successeurs (position:[int, int], size:int) -> Tuple :
 	return res
 
 # Soit une grille de size x size, on va devoir parcourir size² etats
-def parcours_largeur_simple (size:int) -> List :
+def parcours_largeur (size:int) -> List :
 
 	liste_etats = [(0,0)]
 
@@ -47,9 +47,9 @@ def parcours_largeur_simple (size:int) -> List :
 
 	return liste_etats
 
-def parcours_profondeur_simple (size:int) -> List :
+def parcours_profondeur (size:int) -> List :
 
-	liste_etats = [init]
+	liste_etats = [(0,0)]
 
 	for etat in liste_etats :
 
@@ -127,15 +127,66 @@ def get_chemin_predecesseurs (predecesseurs:Dict, but:Tuple[int, int]) :
 # En effet, nous travaillons sur une grille de taille size x size
 # or la distance de Manhattan - dont la formule est : |x0−x1|+|y0−y1| -
 # est faite pour calculer la distance entre x et y dans un quadrillage.
-def distance_manhattan(x:Tuple[int, int], y:Tuple[int, int]) -> int : 
-	xdiff = abs(x[0] - x[1])
-	ydiff = abs(y[0] - y[1])
+def distance_manhattan(depart:Tuple[int, int], but:Tuple[int, int]) -> int : 
+	xdiff = abs(depart[0] - but[0])
+	ydiff = abs(depart[1] - but[1])
 
 	return xdiff + ydiff
 
+# Retourne les successeurs qui ne sont pas des culs-de-sac
+def successeurs_glouton (position:Tuple[int, int], size:int, dead_end:Dict, chemin:Tuple) -> Tuple :
+	succs = successeurs(position, size)
+	res = []
+
+	for s in succs :
+		if dead_end[s] == False and s not in chemin:
+			res.append(s)
+
+	return res
+
+def get_minimum_distance_state (successeurs:Tuple, but:Tuple) :
+
+	distance = {} # liste des distance en fonction des etats
+	for s in successeurs :
+		distance[s] = distance_manhattan(s, but) # On calcule la distance de manhattan entre un candidat et le but
+
+	# Minimum se presente sous la forme ((i, j), distance)
+	minimum = distance.popitem()
+	for item in distance.items() :
+		if item[1] < minimum[1] :
+			minimum = item
+
+	return minimum
+
+
 # algo glouton sur la largeur d'abord
-def glouton_bfs (size:int, init:Tuple[int, int], but:Tuple[int, int]) -> List :
-	return []
+def glouton (size:int, init:Tuple[int, int], but:Tuple[int, int]) -> List :
+
+	chemin = [init] # La où se place notre agent
+	dead_end = {}
+
+	# Si un etat == True alors cet etat est un cul-de-sac
+	for i in range(size) :
+		for j in range(size) :
+			dead_end[(i, j)] = False 
+
+	while dead_end.get(init) == False and chemin[len(chemin)-1] != tuple(but): # tant que ma case de depart n'est pas un cul de sac alors je cherche un autre chemin et que je n'ai pas atteint le but
+		
+		for etat in chemin :
+
+			if etat == tuple(but) :
+				break
+
+			succs = successeurs_glouton(etat, size, dead_end, chemin)
+			if len(succs) != 0 : # si je peux continuer a construire un chemin
+				minimum = get_minimum_distance_state(succs, but)
+				chemin.append(minimum[0])
+			else :
+				dead_end[etat] = True # si il n'y a pas de successeurs alors je suis dans un cul-de-sac
+				chemin = [init]
+				break
+
+	return chemin
 
 if __name__ == "__main__":
 
@@ -168,11 +219,16 @@ if __name__ == "__main__":
 		#############
 		agent_pos = wwr.get_status()[1]
 
-		liste_etat_largeur = parcours_largeur_simple(size)
-		#chemin = chemin_largeur(size, agent_pos, [size-1, size-1])
-		chemin = chemin_profondeur(size, agent_pos, [size-1, size-1])
+		liste_etat_largeur = parcours_largeur(size)
+		liste_etat_profondeur = parcours_profondeur(size)
+		#print(f"parcours largeur : {liste_etat_largeur} \nparcours profondeur : {liste_etat_profondeur}")
+		chemin_l = chemin_largeur(size, agent_pos, [size-1, size-1])
+		chemin_p = chemin_profondeur(size, agent_pos, [size-1, size-1])
+		#chemin_glouton = glouton(size, agent_pos, [size-1, size-1])
 
-		print(chemin)
+		#print(chemin_l)
+		#print(chemin_p)
+		#print(chemin_glouton)
 
 		status, msg, gold = wwr.maze_completed()
 		print(f"Ca coute {gold}")
@@ -180,5 +236,3 @@ if __name__ == "__main__":
 		print("press enter for the next maze !!")
 		input()
 		status, msg, size = wwr.next_maze()
-
-
