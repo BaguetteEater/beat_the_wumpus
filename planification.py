@@ -159,7 +159,10 @@ def get_minimum_distance_state (successeurs:Tuple, but:Tuple) :
 	return minimum
 
 
-# algo glouton sur la largeur d'abord
+# algo glouton
+# Dans cette version, on recommence a calculer un chemin si jamais nous tombons sur un cul-de-sac
+# C'est TRES gourmand et ça ne garantis pas le meilleur chemin
+# Mais si il existe un chemin, il le trouvera
 def glouton (size:int, init:Tuple[int, int], but:Tuple[int, int]) -> List :
 
 	chemin = [init] # La où se place notre agent
