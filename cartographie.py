@@ -606,7 +606,8 @@ def cartographier (wwr:WumpusWorldRemote, taille_grille:int = 4, enable_log:bool
 				else :
 					status, percepts, cost = wwr.probe(i,j)
 
-				print(status, percepts, cost, i, j)
+				if enable_log :
+					print(status, percepts, cost, i, j)
 
 				res[i][j] = percepts
 
