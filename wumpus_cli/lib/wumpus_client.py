@@ -5,7 +5,7 @@ import sys
 __author__ = "Sylvain Lagrue"
 __copyright__ = "Copyright 2020, UTC"
 __license__ = "LGPL-3.0"
-__version__ = "0.11.0-rc2"
+__version__ = "0.12.1-rc3"
 __maintainer__ = "Sylvain Lagrue"
 __email__ = "sylvain.lagrue@utc.fr"
 __status__ = "dev"
@@ -95,19 +95,25 @@ class WumpusWorldRemote:
         except requests.exceptions.ConnectionError:
             return ("[Err]", None, None)
 
-        # FIXME: plutôt faire un status dans le retour
-        # if r["status"] == "[Err]":
-        #     return None
+        print(r)
 
+        # if r["status"] != "[OK]":
+        #     return "[OK]", msg, size
+
+        status = r["status"]
         msg = r["msg"]
-        size = r["grid_size"]
+        if "grid_size" in r:
+            size = r["grid_size"]
+        else:
+            size = -1
+
         self.phase = 1
         self.dead = False
 
         self.maze_number += 1
         self.current_size = size
 
-        return "[OK]", msg, size
+        return status, msg, size
 
     def end_map(self):
         assert self.phase == 1, "end_map called but you're not in Phase 1..."
