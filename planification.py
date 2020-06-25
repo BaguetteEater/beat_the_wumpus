@@ -36,7 +36,7 @@ def successeurs (position:[int, int], size:int) -> Tuple :
 # Soit une grille de size x size, on va devoir parcourir size² etats
 def parcours_largeur_simple (size:int) -> List :
 
-	liste_etats = [[0,0]]
+	liste_etats = [(0,0)]
 
 	for etat in liste_etats :
 
@@ -47,7 +47,25 @@ def parcours_largeur_simple (size:int) -> List :
 
 	return liste_etats
 
-def parcours_largeur_memoire (size:int, init:Tuple[int, int], but:Tuple[int, int]) -> Tuple :
+def parcours_profondeur_simple (size:int) -> List :
+
+	liste_etats = [init]
+
+	for etat in liste_etats :
+
+		succs = successeurs(etat, size)
+		offset = 1
+		for s in succs :
+			if s not in liste_etats :
+				# soit [0, 1, 2] et s de 1 = [4, 5]. On doit inserer 4 en 1 + 1 = 2 et 5 en 1 + 2 = 3
+				# offset est initialisé a 1 et a chaque insertion est augmenté de un
+				idx = liste_etats.index(etat) + offset
+				liste_etats.insert(idx, tuple(s))
+				offset += 1
+
+	return liste_etats
+
+def chemin_largeur (size:int, init:Tuple[int, int], but:Tuple[int, int]) -> Tuple :
 	
 	predecesseurs = {}
 	liste_etats = [init]
@@ -63,20 +81,9 @@ def parcours_largeur_memoire (size:int, init:Tuple[int, int], but:Tuple[int, int
 				predecesseurs[tuple(s)] = tuple(etat)
 				liste_etats.append(tuple(s))
 
-	## Init de la boucle
-	step = tuple(but) # On cast le but en tuple, car le dictionnaire n'accepte que ça en guise de clef (pas le droit aux listes)
-	chemin = [step] # On ajoute le but en tete de liste de notre chemin
-	pred = predecesseurs.get(step, -1) # le deuxieme argument est le retour si il n'y a pas de valeur attachée a la clef
+	return get_chemin_predecesseurs(predecesseurs, but)
 
-	while pred != -1 : 
-		chemin.append(pred)
-		step = pred
-		pred = predecesseurs.get(step, -1)
-
-	chemin.reverse()
-	return chemin
-
-def parcours_profondeur (size:int, init:Tuple[int, int], but:Tuple[int, int]) -> List :
+def chemin_profondeur (size:int, init:Tuple[int, int], but:Tuple[int, int]) -> List :
 	
 	predecesseurs = {}
 	liste_etats = [init]
@@ -97,7 +104,11 @@ def parcours_profondeur (size:int, init:Tuple[int, int], but:Tuple[int, int]) ->
 				idx = liste_etats.index(etat) + offset
 				liste_etats.insert(idx, tuple(s))
 				offset += 1
-	
+
+	return get_chemin_predecesseurs(predecesseurs, but)
+
+def get_chemin_predecesseurs (predecesseurs:Dict, but:Tuple[int, int]) :
+
 	## Init de la boucle
 	step = tuple(but) # On cast le but en tuple, car le dictionnaire n'accepte que ça en guise de clef (pas le droit aux listes)
 	chemin = [step] # On ajoute le but en tete de liste de notre chemin
@@ -111,11 +122,19 @@ def parcours_profondeur (size:int, init:Tuple[int, int], but:Tuple[int, int]) ->
 	chemin.reverse()
 	return chemin
 
-# Pour notre heiristique, nous choissons la distance de Manhattan entre notre position et l'etat but
+
+# Pour notre heuristique, nous choissons la distance de Manhattan entre notre position et l'etat but
 # En effet, nous travaillons sur une grille de taille size x size
 # or la distance de Manhattan - dont la formule est : |x0−x1|+|y0−y1| -
 # est faite pour calculer la distance entre x et y dans un quadrillage.
-def glouton (size:int, init:Tuple[int, int], but:Tuple[int, int]) -> List :
+def distance_manhattan(x:Tuple[int, int], y:Tuple[int, int]) -> int : 
+	xdiff = abs(x[0] - x[1])
+	ydiff = abs(y[0] - y[1])
+
+	return xdiff + ydiff
+
+# algo glouton sur la largeur d'abord
+def glouton_bfs (size:int, init:Tuple[int, int], but:Tuple[int, int]) -> List :
 	return []
 
 if __name__ == "__main__":
@@ -150,8 +169,8 @@ if __name__ == "__main__":
 		agent_pos = wwr.get_status()[1]
 
 		liste_etat_largeur = parcours_largeur_simple(size)
-		#chemin = parcours_largeur_memoire(size, agent_pos, [size-1, size-1])
-		chemin = parcours_profondeur(size, agent_pos, [size-1, size-1])
+		#chemin = chemin_largeur(size, agent_pos, [size-1, size-1])
+		chemin = chemin_profondeur(size, agent_pos, [size-1, size-1])
 
 		print(chemin)
 
