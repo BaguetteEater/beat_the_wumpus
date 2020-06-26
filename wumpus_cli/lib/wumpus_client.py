@@ -5,7 +5,7 @@ import sys
 __author__ = "Sylvain Lagrue"
 __copyright__ = "Copyright 2020, UTC"
 __license__ = "LGPL-3.0"
-__version__ = "0.12.1-rc3"
+__version__ = "1.0.0"
 __maintainer__ = "Sylvain Lagrue"
 __email__ = "sylvain.lagrue@utc.fr"
 __status__ = "dev"
@@ -27,6 +27,8 @@ class WumpusWorldRemote:
         self.maze_number = 0
         self.current_size = 0
 
+        self._session = requests.Session()
+
         self.register()
 
     def _request(self, cmd: str, position={"x": 0, "y": 0}):
@@ -37,7 +39,7 @@ class WumpusWorldRemote:
             "position": position,
         }
 
-        r = requests.post(f"{self._basename}/{cmd}", json=data)
+        r = self._session.post(f"{self._basename}/{cmd}", json=data)
 
         if r.status_code != requests.codes.ok:
             print("Erreur requête:", r.text)
@@ -94,11 +96,6 @@ class WumpusWorldRemote:
             r = self._request("next-maze")
         except requests.exceptions.ConnectionError:
             return ("[Err]", None, None)
-
-        print(r)
-
-        # if r["status"] != "[OK]":
-        #     return "[OK]", msg, size
 
         status = r["status"]
         msg = r["msg"]
