@@ -120,6 +120,7 @@ def get_chemin_predecesseurs (predecesseurs:Dict, but:Tuple[int, int]) :
 		pred = predecesseurs.get(step, -1)
 
 	chemin.reverse()
+	chemin.pop(0) # le premier element etant la position de depart, cela ne nous interesse pas
 	return chemin
 
 
@@ -158,6 +159,16 @@ def get_minimum_distance_state (successeurs:Tuple, but:Tuple) :
 
 	return minimum
 
+
+def get_gold_position (size:int) :
+
+	liste_pos_gold = []
+	for i in range(size) :
+		for j in range(size) :
+			if 'G' in carte[i][j] :
+				liste_pos_gold.append((i, j))
+
+	return liste_pos_gold
 
 # algo glouton
 # Dans cette version, on recommence a calculer un chemin si jamais nous tombons sur un cul-de-sac
@@ -211,7 +222,7 @@ if __name__ == "__main__":
 		#############
 		carte = cartographier(wwr, size)
 
-		for row in carte :
+		for row in carte : # On imprime la carte obtenue
 			print(row)
 
 		status, msg = wwr.end_map()
@@ -220,22 +231,23 @@ if __name__ == "__main__":
 		#############
 		## Phase 2 ##
 		#############
-		agent_pos = wwr.get_status()[1]
+		agent_pos = wwr.get_position()
+		gold_positions = get_gold_position(size)
 
-		liste_etat_largeur = parcours_largeur(size)
-		liste_etat_profondeur = parcours_profondeur(size)
-		#print(f"parcours largeur : {liste_etat_largeur} \nparcours profondeur : {liste_etat_profondeur}")
-		chemin_l = chemin_largeur(size, agent_pos, [size-1, size-1])
-		chemin_p = chemin_profondeur(size, agent_pos, [size-1, size-1])
-		#chemin_glouton = glouton(size, agent_pos, [size-1, size-1])
+		for gold_pos in gold_positions :
+			
+			chemin = chemin_largeur(size, agent_pos, gold_pos)
+			if len(chemin) != 0 and chemin[-1] == gold_pos : # Si j'ai un chemin et le dernier element de ma liste est bien la case contenant l'or
+				for case in chemin :
+					wwr.go_to(case[0], case[1])
 
-		#print(chemin_l)
-		#print(chemin_p)
-		#print(chemin_glouton)
+			agent_pos = wwr.get_position()
+
+		chemin = chemin_largeur(size, agent_pos, (0,0)) # On a attrapé tout l'or, on peut rentrer
+		for case in chemin :
+			wwr.go_to(case[0], case[1])
 
 		status, msg, gold = wwr.maze_completed()
-		print(f"Ca coute {gold}")
+		print(f"Ca coute {gold['total_cost']}, on a gagné : {gold['total_reward']}")
 
-		print("press enter for the next maze !!")
-		input()
 		status, msg, size = wwr.next_maze()
