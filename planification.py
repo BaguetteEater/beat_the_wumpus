@@ -244,7 +244,7 @@ def glouton (size:int, init:Tuple[int, int], but:Tuple[int, int]) -> List :
 if __name__ == "__main__":
 
 	server = "http://localhost:8080"
-	groupe_id = "Binôme de projet 45"  # votre vrai numéro de groupe
+	groupe_id = "PRJ45"  # votre vrai numéro de groupe
 	names = "Ulysse Brehon et Luis Enrique Gonzalez Hilario"  # vos prénoms et noms
 
 	try:
@@ -260,6 +260,8 @@ if __name__ == "__main__":
 		#############
 		## PHASE 1 ##
 		#############
+		print("       =====================\n")
+		print(f"Carte de {size}*{size}")
 		carte = cartographier(wwr, size)
 
 		for row in carte : # On imprime la carte obtenue
@@ -267,6 +269,7 @@ if __name__ == "__main__":
 
 		status, msg = wwr.end_map()
 		print(status, msg)
+		print("\n")
 
 		#############
 		## Phase 2 ##
@@ -274,9 +277,14 @@ if __name__ == "__main__":
 		agent_pos = wwr.get_position()
 		gold_positions = get_gold_position(size)
 
+		print(f"Goals (gold pos) : {gold_positions}")
+
 		for gold_pos in gold_positions :
 			
+			print(f"Current goal : {gold_pos}")
+
 			chemin = a_etoile(size, agent_pos, gold_pos)
+			print(f"A* chemin : {chemin}")
 			if len(chemin) != 0 and chemin[-1] == gold_pos : # Si j'ai un chemin et le dernier element de ma liste est bien la case contenant l'or
 				for case in chemin :
 					wwr.go_to(case[0], case[1])
@@ -288,6 +296,6 @@ if __name__ == "__main__":
 			wwr.go_to(case[0], case[1])
 
 		status, msg, gold = wwr.maze_completed()
-		print(f"Ca coute {gold['total_cost']}, on a gagné : {gold['total_reward']}")
+		print(f"Total cost : {gold['total_cost']}, total reward : {gold['total_reward']}\n\n")
 
 		status, msg, size = wwr.next_maze()

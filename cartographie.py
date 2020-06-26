@@ -635,7 +635,7 @@ def cartographier (wwr:WumpusWorldRemote, taille_grille:int = 4, enable_log:bool
 if __name__ == "__main__":
 
 	server = "http://localhost:8080"
-	groupe_id = "Binôme de projet 45"  # votre vrai numéro de groupe
+	groupe_id = "PRJ45"  # votre vrai numéro de groupe
 	names = "Ulysse Brehon et Luis Enrique Gonzalez Hilario"  # vos prénoms et noms
 
 	try:
