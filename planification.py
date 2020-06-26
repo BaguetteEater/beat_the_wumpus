@@ -160,6 +160,11 @@ def get_minimum_distance_state (successeurs:Tuple, but:Tuple) :
 
 	return minimum
 
+# Parcourt en largeur les etats jusqu'a tomber sur notre but
+# A chaque iteration, on calcule le cout pour aller de l'etat initial vers la l'etat cible à partir de l'etat courant
+# Si jamais un chemin avait deja été trouvé vers la cible, on prend le chemin le moins couteux
+# On utilise une distance de manhattan ainsi qu'un cout cumulé depuis l'etat initial tel que :
+# g = f + h avec g le cout total, f le cout depuis l'etat inital et h notre heuristique
 def a_etoile (size:int, init:Tuple, but:Tuple) :
 	queue = PriorityQueue() # une
 	queue.put(init, 0)
