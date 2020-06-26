@@ -1,4 +1,5 @@
 import sys
+from queue import PriorityQueue
 from typing import Dict, Tuple, List, Union
 from wumpus_cli.lib.wumpus_client import WumpusWorldRemote
 from cartographie import cartographier
@@ -159,6 +160,39 @@ def get_minimum_distance_state (successeurs:Tuple, but:Tuple) :
 
 	return minimum
 
+def a_etoile (size:int, init:Tuple, but:Tuple) :
+	queue = PriorityQueue() # une
+	queue.put(init, 0)
+
+	predecesseurs = {}
+	liste_couts = {} # Dico des couts en fonctions des etats
+
+	predecesseurs[init] = None
+	liste_couts[init] = 0 
+
+	# le prix pour aller d'une case à une autre
+	# il est le meme pour toutes les cases
+	cout_gold = 10
+	
+	while not queue.empty(): # Tant que la queue n'est pas vide
+		etat = queue.get() # On recupere un etat
+
+		if etat == but : # on arrete dès qu'on a trouvé notre but
+			break
+		
+		for s in successeurs(etat, size):
+
+			# On calcule le nouveau cout pour aller en s
+			# Si mon successeur n'est pas encore incrit dans la liste OU BIEN, son nouveau cout est plus interessant -> je visite
+			cout_depuis_init = liste_couts[etat] + cout_gold
+			if s not in liste_couts or cout_depuis_init < liste_couts[s]:
+				liste_couts[s] = cout_depuis_init
+				g = cout_depuis_init + distance_manhattan(but, s) # le calcul g = f + h est ici
+				queue.put(s, g)
+				predecesseurs[s] = etat
+	
+	return get_chemin_predecesseurs(predecesseurs, but)
+
 
 def get_gold_position (size:int) :
 
@@ -217,6 +251,7 @@ if __name__ == "__main__":
 
 	status, msg, size = wwr.next_maze()
 	while status == "[OK]":
+		
 		#############
 		## PHASE 1 ##
 		#############
@@ -236,14 +271,14 @@ if __name__ == "__main__":
 
 		for gold_pos in gold_positions :
 			
-			chemin = chemin_largeur(size, agent_pos, gold_pos)
+			chemin = a_etoile(size, agent_pos, gold_pos)
 			if len(chemin) != 0 and chemin[-1] == gold_pos : # Si j'ai un chemin et le dernier element de ma liste est bien la case contenant l'or
 				for case in chemin :
 					wwr.go_to(case[0], case[1])
 
 			agent_pos = wwr.get_position()
 
-		chemin = chemin_largeur(size, agent_pos, (0,0)) # On a attrapé tout l'or, on peut rentrer
+		chemin = a_etoile(size, agent_pos, (0,0)) # On a attrapé tout l'or, on peut rentrer
 		for case in chemin :
 			wwr.go_to(case[0], case[1])
 
