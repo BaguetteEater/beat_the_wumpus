@@ -2,7 +2,7 @@ Projet universitaire réalisé dans le cadre de IA02
 
 Binôme numero 45 - Ulysse Brehon et Luis Enrique Gonzalez Hilario
 
-Librairies wumpus_cli et wumpus_server réalisées par Sylvain Lagrue, Khaled Belahcene et Paul Ménard
+Librairies Gophersat, wumpus_cli, wumpus_server réalisées par Sylvain Lagrue, Khaled Belahcene et Paul Ménard
 
 Pour lancer ce projet :
 
